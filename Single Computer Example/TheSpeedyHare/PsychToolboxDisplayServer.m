@@ -1,10 +1,13 @@
 function PsychToolboxDisplayServer(command, varargin)
+%% PsychtoolboxDisplayServer
+% Equivalent to PsychtoolboxSoundServer, but for communicating with
+% Psychooltoolbox visual display. 
+
 global BpodSystem
 
-
-switch command
+switch lower(command)
     
-    case 'init' %initialize gray screen &
+    case 'init' %initialize gray screen and sync squares
         % This script calls Psychtoolbox commands available only in OpenGL-based
         % versions of the Psychtoolbox. (So far, the OS X Psychtoolbox is the
         % only OpenGL-base Psychtoolbox.)  The Psychtoolbox command AssertPsychOpenGL will issue
@@ -12,12 +15,12 @@ switch command
         % an OpenGL Psychtoolbox
         AssertOpenGL;
         
-        screenNumber=max(Screen('Screens'));
+        screenNumber=max(Screen('Screens')); %assumes two connected screens. plays visual stimulus to second screen. 
         
         screenRes = Screen('Resolution',screenNumber);
-        [screenPTR, screenRect] = Screen('OpenWindow',screenNumber);
+        [screenPTR, screenRect] = Screen('OpenWindow',screenNumber,128);
         
-        Screen(screenPTR,'BlendFunction',GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+%         Screen(screenPTR,'BlendFunction',GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         
         white=WhiteIndex(screenNumber);
         black=BlackIndex(screenNumber);
@@ -33,11 +36,11 @@ switch command
         end
 
         monitorParameters; %loads monitor parameters
-        pixpercmX = screenRes.width/BpodSystem.StimulusDisplay.MonitorScreenXcm;
-        pixpercmY = screenRes.height/BpodSystem.StimulusDisplay.MonitorScreenYcm;
+        pixpercmX = screenRes.width/BpodSystem.PluginObjects.StimulusDisplay.MonitorScreenXcm;
+        pixpercmY = screenRes.height/BpodSystem.PluginObjects.StimulusDisplay.MonitorScreenYcm;
         
-        syncWX = round(pixpercmX*BpodSystem.StimulusDisplay.SyncSize);
-        syncWY = round(pixpercmY*BpodSystem.StimulusDisplay.SyncSize);
+        syncWX = round(pixpercmX*BpodSystem.PluginObjects.StimulusDisplay.SyncSize);
+        syncWY = round(pixpercmY*BpodSystem.PluginObjects.StimulusDisplay.SyncSize);
                 
         %SyncLoc = [0 screenRes.height-syncWY syncWX-1 screenRes.height-1]';
         SyncLoc = [0 0 syncWX-1 syncWY-1]';
@@ -53,31 +56,30 @@ switch command
         Screen('DrawTexture', screenPTR, syncTexture(2),SyncPiece,SyncLoc);
         Screen(screenPTR, 'Flip');
         
-        BpodSystem.StimulusDisplay.Textures.Sync = syncTexture;
-        BpodSystem.StimulusDisplay.Textures.SyncLocation = SyncLoc;
-        BpodSystem.StimulusDisplay.Textures.SyncSize = SyncPiece; 
+        BpodSystem.PluginObjects.StimulusDisplay.Textures.Sync = syncTexture;
+        BpodSystem.PluginObjects.StimulusDisplay.Textures.SyncLocation = SyncLoc;
+        BpodSystem.PluginObjects.StimulusDisplay.Textures.SyncSize = SyncPiece; 
                
-        BpodSystem.StimulusDisplay.screenNumber = screenNumber;
-        BpodSystem.StimulusDisplay.screenPTR = screenPTR;
-        BpodSystem.StimulusDisplay.screenRect =screenRect;
-        BpodSystem.StimulusDisplay.refresh_rate = 1/Screen('GetFlipInterval', screenPTR);
+        BpodSystem.PluginObjects.StimulusDisplay.screenNumber = screenNumber;
+        BpodSystem.PluginObjects.StimulusDisplay.screenPTR = screenPTR;
+        BpodSystem.PluginObjects.StimulusDisplay.screenRect =screenRect;
+        BpodSystem.PluginObjects.StimulusDisplay.refresh_rate = 1/Screen('GetFlipInterval', screenPTR);
         
-    case 'Make' %send instructions for creating the visual stimulus to be displayed
+    case 'make' %send instructions/parameters for creating the visual stimulus to be displayed
         stimID = varargin{1};
         parameterStruct = varargin{2};
         makeStimulus(stimID,parameterStruct);
-        BpodSystem.StimulusDisplay.Parameters = parameterStruct;
+        BpodSystem.PluginObjects.StimulusDisplay.Parameters = parameterStruct;
         
-    case 'Play' %play visual stimulus
+    case 'play' %play visual stimulus
         stimID = varargin{1};
         playStimulus(stimID);
         
-    case 'Stop' %set a global variable equal to zero tht will stop the stimulus
-%         stimID = varargin{1};
-%         BpodSystem.stopDisplay = stimID;
-        Screen('Close');
-
-    case 'Stopall'
+    case 'stop' %stop the  visual stimulus
+        Screen(BpodSystem.PluginObjects.StimulusDisplay.screenPTR, 'FillRect', 128)
+        Screen(BpodSystem.PluginObjects.StimulusDisplay.screenPTR, 'Flip');
+        
+    case 'stopall'
         Screen('CloseAll');
         
 end
@@ -89,9 +91,9 @@ function makeStimulus(stimID,parameters)
 
 switch stimID
     
-    case 'CB'
-        %checkboard stimulus will be used as noise
-        makeCheckerboard(parameters)
+%     case 'CB'
+%         %checkboard stimulus will be used as noise
+%         makeCheckerboard(parameters)
         
     case 'DG'
         %dual grating stimulus
@@ -101,15 +103,11 @@ end
 
 function playStimulus(stimID)
 % runs scripts that will play desired stimulus
-
+% add case for each visual stimulus type
 switch stimID
     case 1
         %dual grating stimulus
         playDualGrater
- 
-    case 2
-        %checkboard stimulus will be used as noise
-        playCheckerboard
                 
 end
 

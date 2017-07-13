@@ -1,22 +1,24 @@
+%% Speed discrimination task
+% Example Bpod protocol with PsychtoolToolbox video display - two computer solution
 
-% Bpod with PsychtoolToolbox Display- two computer solution
-% Based on TheSlipperyFish
-% Written by Kachi Odoemene Dec 2015
+% In the task subjects are presented with two grating stimuli on the left
+% and right of the screen. The gratings are drifting at difference speeds
+% (in degrees/s): reference and test. The reference speed is the same value on
+% every trial (e.g. 25 degrees/s), however the spatial/temporal frequency
+% of the reference grating can vary on each trial. 
+% Kachi Odoemene Dec 2015
 
-% Speed discrimination task 
-            
 function TheSpeedyHare_2computers
-addpath(genpath(fullfile('~','Bpod-ZadorLab','Protocols','TheSpeedyHare_2computers')));
+
+addpath(genpath(fullfile('~','Bpod-ZadorLab','Protocols','TheSpeedyHare_2computers'))); % add local folder to path
 
 global BpodSystem
 
-%initialize 
 PsychToolboxDisplayServer('init') % Initialize communication with display server
 BpodSystem.SoftCodeHandlerFunction = 'SoftCodeHandler_StimulusDisplay'; % Set soft code handler to trigger stimuli
-StimulusParamPreviewer; %launch stimulus preview panel
+StimulusParamPreviewer; %launch stimulus preview GUI panel
 
 %% Define settings for protocol
-
 %Initialize default session settings.
 %Append new settings to the end
 DefaultSettings.SubjectName = 'Hare';
@@ -55,24 +57,26 @@ DefaultSettings.ExtraStimDurationStep = 0; %sec
 DefaultSettings.PlotPMFnTrials = 100;
 DefaultSettings.UpdatePMfnTrials = 5;
 
-defaultFieldParamVals = struct2cell(DefaultSettings);
-defaultFieldNames = fieldnames(DefaultSettings);
+% update settings
+defaultFieldNames = fieldnames(DefaultSettings); % get current settings field names
+prevSettings = BpodSystem.ProtocolSettings; % Load settings chosen in launch manager into current workspace as a struct S
+prevFieldNames = fieldnames(prevSettings);
+prevFieldVals = struct2cell(prevSettings);
 
-S = BpodSystem.ProtocolSettings; % Load settings chosen in launch manager into current workspace as a struct S
-currentFieldNames = fieldnames(S);
-
-if isempty(fieldnames(S)) % If settings file was an empty struct, populate struct with default settings
-    S = DefaultSettings;
-elseif numel(defaultFieldNames) > numel(currentFieldNames)  %an addition to default settings, update
-    differentI = find(~ismember(defaultFieldNames,currentFieldNames)); %find the index
-    for ii = 1:numel(differentI)
-        thisnewfield = defaultFieldNames{differentI(ii)};
-        S.(thisnewfield)=defaultFieldParamVals{differentI(ii)};
-    end
+% go through previous settings and update accordingly
+newSettings = DefaultSettings;
+for n = 1:numel(defaultFieldNames)
+  thisfield = defaultFieldNames{n};
+  index = find(strcmpi(thisfield,prevFieldNames));
+  if isempty(index)
+      continue;
+  end
+  newSettings.(thisfield) = prevFieldVals{index};
 end
 
-% Launch parameter GUI
-BpodParameterGUI_Visual('init', S);
+S = newSettings; %update parameters
+BpodParameterGUI_Visual('init', S); % Launch parameter GUI
+
 
 %%
 % ports are numbered 0-7. Need to convert to 8bit values for bpod
@@ -175,7 +179,6 @@ for currentTrial = 1:maxTrials
     end
     
     if TrialsDone > 1 && S.UseAntiBias > 0 && outcome > -1
-        
         pLeft = getAntiBiasPLeft(SuccessArray, ModalityRightArray, modalityNum, ...
             S.UseAntiBias, AntiBiasPrevLR, AntiBiasPrevSuccess);
         
@@ -184,7 +187,6 @@ for currentTrial = 1:maxTrials
         
         sidesList(currentTrial) = coin > (1 - pLeft); %the sign is important, it must match the way left and right trials are assigned based on prop left/right
         TrialSidesList = sidesList;
-        
     elseif TrialsDone > 1 && (S.PropLeft ~= PrevPropLeft) && (S.UseAntiBias == 0)
         % If experimenter changed PropLeft, then we need to recompute the
         % side of the future trials
@@ -194,7 +196,6 @@ for currentTrial = 1:maxTrials
         FutureTrials  = FutureTrials(randperm(ntrialsRemaining));
         TrialSidesList(currentTrial:end) = FutureTrials;
         PrevPropLeft = S.PropLeft;
-        
     end %end S.UseAntiBias, S.PropLeft
     
     if TrialsDone > 0
@@ -213,7 +214,6 @@ for currentTrial = 1:maxTrials
         correctSide = 1;
         
         speedList = S.SpeedList(S.SpeedList >= S.CategoryBoundary);
-
     else % Rightward trial (thisTrialSide == 0)
         %present fastest of gratings on the right
         LeftPortAction = 'SoftPunish';
@@ -257,7 +257,7 @@ for currentTrial = 1:maxTrials
         GoCueOutputAction = {'PWM1', 255,'PWM3', 255};
     end
     
-    % Build state matrix  
+    %% Build state matrix  
     sma = NewStateMatrix();
     
     sma = AddState(sma, 'Name', 'GoToCenter', ...
@@ -340,13 +340,13 @@ for currentTrial = 1:maxTrials
         'StateChangeConditions', {'Tup', 'exit'}, ...
         'OutputActions', {'SoftCode', 255} );
     
-    % Send and run state matrix
+    %% Send and run state matrix
     BpodSystem.Data.TrialSettings(currentTrial) = S; % Adds the settings used for the current trial to the Data struct (to be saved after the trial ends)
     
     SendStateMatrix(sma);
     RawEvents = RunStateMatrix;
     
-    % Save events and data
+    %% Save events and data
     if ~isempty(fieldnames(RawEvents))
         BpodSystem.Data = AddTrialEvents(BpodSystem.Data,RawEvents);
         
@@ -399,13 +399,11 @@ for currentTrial = 1:maxTrials
         end
         
         if OutcomeRecord(TrialsDone) >= 0 %if the subject responded
-            
             if ((correctSideRecord(TrialsDone)==1) && Rewarded(TrialsDone)) || ((correctSideRecord(TrialsDone)==2) && ~Rewarded(TrialsDone))
                 ResponseSideRecord(TrialsDone) = 1;
             elseif ((correctSideRecord(TrialsDone)==1) && ~Rewarded(TrialsDone)) || ((correctSideRecord(TrialsDone)==2) && Rewarded(TrialsDone))
                 ResponseSideRecord(TrialsDone) = 2;
             end
-            
         end
         
         BpodSystem.Data.ResponseSide(TrialsDone) = ResponseSideRecord(TrialsDone);
@@ -413,7 +411,6 @@ for currentTrial = 1:maxTrials
         % If previous trial was not an early withdrawal, increase wait duration
         if ~BpodSystem.Data.EarlyWithdrawal(TrialsDone)
             S.minWaitTime = S.minWaitTime + S.minWaitTimeStep;
-            
         end
         
         %print things to screen

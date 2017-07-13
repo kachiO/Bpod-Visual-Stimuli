@@ -1,52 +1,89 @@
 function playDualGrater
-
+t = tic;
 global BpodSystem
-screenPTR = BpodSystem.StimulusDisplay.screenPTR;
-frameRate = BpodSystem.StimulusDisplay.frameRate;
-ChannelCode =1;
-BpodSystem.HardwareState.BNCInputs(ChannelCode) = 1;
+screenPTR = BpodSystem.PluginObjects.StimulusDisplay.screenPTR;
 
 %unload textures and locations for drawing on screen
-locationStim1 =BpodSystem.StimulusDisplay.Textures.locationStimL;
-locationStim2 = BpodSystem.StimulusDisplay.Textures.locationStimR;
-srcRect = BpodSystem.StimulusDisplay.Textures.StimSize;
+locationStimL =BpodSystem.PluginObjects.StimulusDisplay.Textures.locationStimL;
+locationStimR = BpodSystem.PluginObjects.StimulusDisplay.Textures.locationStimR;
+srcRect = BpodSystem.PluginObjects.StimulusDisplay.Textures.StimSize;
 
-gratingtex1 = BpodSystem.StimulusDisplay.Textures.StimL;
-gratingtex2 = BpodSystem.StimulusDisplay.Textures.StimR;
+gratingtexL = BpodSystem.PluginObjects.StimulusDisplay.Textures.StimL;
+gratingtexR = BpodSystem.PluginObjects.StimulusDisplay.Textures.StimR;
 
-syncTexture = BpodSystem.StimulusDisplay.Textures.Sync;
-syncLoc = BpodSystem.StimulusDisplay.Textures.SyncLocation;
-syncRect = BpodSystem.StimulusDisplay.Textures.SyncSize;
+syncTexture = BpodSystem.PluginObjects.StimulusDisplay.Textures.Sync;
+syncLoc = BpodSystem.PluginObjects.StimulusDisplay.Textures.SyncLocation;
+syncRect = BpodSystem.PluginObjects.StimulusDisplay.Textures.SyncSize;
 
-movieDurationSecs = BpodSystem.StimulusDisplay.Parameters.StimulusDuration; % Run the movie animation for a fixed period.
+freqL = BpodSystem.PluginObjects.StimulusDisplay.Textures.CyclesPerPixelL;
+freqR = BpodSystem.PluginObjects.StimulusDisplay.Textures.CyclesPerPixelR;
 
-numFrames1 = BpodSystem.StimulusDisplay.Textures.NumFramesStimL;
-numFrames2 = BpodSystem.StimulusDisplay.Textures.NumFramesStimR;
+oriAngle = BpodSystem.PluginObjects.StimulusDisplay.Parameters.Orientation;
 
-% Convert movieDuration in seconds to duration in frames to draw:
-movieDurationFrames=round(movieDurationSecs * frameRate);
-movieFrameIndices1=(mod(0:(movieDurationFrames-1), numFrames1) + 1);
-movieFrameIndices2=(mod(0:(movieDurationFrames-1), numFrames2) + 1);
+cyclespersecondL = BpodSystem.PluginObjects.StimulusDisplay.Parameters.TFreqs(1);
+cyclespersecondR = BpodSystem.PluginObjects.StimulusDisplay.Parameters.TFreqs(2);
+
+rotateMode = kPsychUseTextureMatrixForRotation;
+
+movieDurationSecs = BpodSystem.PluginObjects.StimulusDisplay.Parameters.StimDuration; % Run the movie animation for a fixed period.
+
+% Amplitude of the grating in units of absolute display intensity range: A
+% setting of 0.5 means that the grating will extend over a range from -0.5
+% up to 0.5, i.e., it will cover a total range of 1.0 == 100% of the total
+% displayable range. As we select a background color and offset for the
+% grating of 0.5 (== 50% nominal intensity == a nice neutral gray), this
+% will extend the sinewaves values from 0 = total black in the minima of
+% the sine wave up to 1 = maximum white in the maxima. Amplitudes of more
+% than 0.5 don't make sense, as parts of the grating would lie outside the
+% displayable range for your computers displays:
+amplitude = 0.5;
+
+% Retrieve video redraw interval for later control of our animation timing:
+ifi = Screen('GetFlipInterval', screenPTR);
+
+% Phase is the phase shift in degrees (0-360 etc.)applied to the sine grating:
+phaseL = 0;
+phaseR = 0;
+% Compute increment of phase shift per redraw:
+phaseincrement1 = (cyclespersecondL * 360) * ifi;
+phaseincrement2 = (cyclespersecondR * 360) * ifi;
 
 % Use realtime priority for better timing precision:
+% Priority(1);
 priorityLevel=MaxPriority(screenPTR);
 Priority(priorityLevel);
 
 Screen('Flip', screenPTR);
+Screen('FillRect', screenPTR, 128);
+
+vbl = Screen('Flip', screenPTR);
+vblendtime = vbl + movieDurationSecs;
+numFrames = round(movieDurationSecs * 1/ifi); %number of frames to draw, 
 
 % Animation loop:
-for i=1:movieDurationFrames
-    % Draw image:
-    Screen('DrawTexture', screenPTR, gratingtex1(movieFrameIndices1(i)),srcRect,locationStim1);
-    Screen('DrawTexture', screenPTR, gratingtex2(movieFrameIndices2(i)),srcRect,locationStim2);
-    Screen('DrawTexture', screenPTR, syncTexture(1+mod(i,2)),syncRect,syncLoc);
-    
-    % Show it at next display vertical retrace. Please check DriftDemo2
-    % and later, as well as DriftWaitDemo for much better approaches to
-    % guarantee a robust and constant animation display timing! This is
-    % very basic and not best practice!
-    Screen('Flip', screenPTR);
+% while vbl < vblendtime
+for f = 1:numFrames
+    % Increment phase by 1 degree:
+    phaseL = phaseL + phaseincrement1;
+    phaseR = phaseR + phaseincrement2;
+
+    % Draw the grating, with given rotation 'angle',
+    % sine grating 'phase' shift and amplitude, rotating via set
+    % 'rotateMode'. Note that we pad the last argument with a 4th
+    % component, which is 0. This is required, as this argument must be a
+    % vector with a number of components that is an integral multiple of 4,
+    % i.e. in our case it must have 4 components:
+    Screen('DrawTexture', screenPTR, gratingtexL, srcRect, locationStimL, oriAngle, [], [], [], [], rotateMode, [phaseL, freqL, amplitude, 0]);
+    Screen('DrawTexture', screenPTR, gratingtexR, srcRect, locationStimR, oriAngle, [], [], [], [], rotateMode, [phaseR, freqR, amplitude, 0]);
+    Screen('DrawTexture', screenPTR, syncTexture(1),syncRect,syncLoc);
+
+    % Show it at next retrace:
+    vbl = Screen('Flip', screenPTR, vbl + 0.5 * ifi);
 end
+Screen('DrawingFinished',screenPTR);
+
+Screen('Flip', screenPTR);
+Screen('FillRect', screenPTR, 128);
 
 Screen('Flip', screenPTR);
 Screen('DrawTexture', screenPTR, syncTexture(2),syncRect,syncLoc);
@@ -56,5 +93,5 @@ Screen('Flip', screenPTR);
 %BpodSystem.HardwareState.BNCInputs(ChannelCode) = 0;
 
 Priority(0);
-
+toc(t)
 

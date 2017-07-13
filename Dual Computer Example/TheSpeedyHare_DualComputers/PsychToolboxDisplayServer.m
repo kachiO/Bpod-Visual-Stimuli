@@ -1,11 +1,12 @@
 %% PsychToolboxDisplayServer.m
 % Written by Kachi Odoemene, Dec 2015
+
 function PsychToolboxDisplayServer(command, varargin)
 global BpodSystem
 
 switch lower(command)
     
-    case 'init' %initialize UDP communication with stimulus computer
+    case 'init' %initialize and establish UDP communication with stimulus computer
         disp('PsychToolboxDisplayServer: Establishing UDP communication with stimulus computer...')
         remoteIPaddress = '192.168.0.2';
         
@@ -49,8 +50,7 @@ switch lower(command)
         msg = sprintf('%s;%s=%.4f',msg,'screenDist',BpodSystem.PluginObjects.StimulusDisplay.ScreenDistance);
         msg = [msg ';~'];  %add the "Terminator"
         
-        fwrite(DcomState.serialPortHandle,msg);
-
+        fwrite(DcomState.serialPortHandle,msg); %write to UDP port
 
     case 'update' %update stimulus parameters. Based on updatePstate.m
         disp('PsychToolboxDisplayServer: Updating parameters...');

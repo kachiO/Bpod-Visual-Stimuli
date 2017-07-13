@@ -14,7 +14,7 @@ function varargout = BpodParameterGUI_Visual(varargin)
             ParamValues = struct2cell(Params);
 
             Vsize = 25+(23*nValues);
-            BpodSystem.ProtocolFigures.ParamFig = figure('Position', [10 1000 230 Vsize],'name','Live Params','numbertitle','off', 'MenuBar', 'none', 'Resize', 'on');
+            BpodSystem.GUIHandles.Figures.ParamFig = figure('Position', [10 1000 230 Vsize],'name','Live Params','numbertitle','off', 'MenuBar', 'none', 'Resize', 'on');
             uicontrol('Style', 'text', 'String', 'Parameter', 'Position', [10 Vsize-30 120 20], 'FontWeight', 'bold', 'FontSize', 11, 'FontName', 'Arial');
             uicontrol('Style', 'text', 'String', 'Value', 'Position', [140 Vsize-30 80 20], 'FontWeight', 'bold', 'FontSize', 11, 'FontName', 'Arial');
             BpodSystem.GUIHandles.ParameterGUI = struct;

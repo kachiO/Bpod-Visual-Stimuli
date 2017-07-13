@@ -1,78 +1,93 @@
+%% Speed discrimination task
+% Example Bpod protocol with PsychtoolToolbox video display
 
-% Bpod with PsychtoolToolbox Display
-% Based on TheSlipperyFish
+% In the task subjects are presented with two grating stimuli on the left
+% and right of the screen. The gratings are drifting at difference speeds
+% (in degrees/s): reference and test. The reference speed is the same value on
+% every trial (e.g. 25 degrees/s), however the spatial/temporal frequency
+% of the reference grating can vary on each trial. 
 % Kachi Odoemene Jan 2015
 
-% Speed discrimination task 
+% Modification history
+% Aug 2016: pilot task ready
+% July 2017: comments
 
-            
 function TheSpeedyHare
-%other names: SpeedyGrater   
+%other names: SpeedyGrater
 
 global BpodSystem
 
-% Initialize sound server
-PsychToolboxDisplayServer('init')
-% Set soft code handler to trigger sounds
-BpodSystem.SoftCodeHandlerFunction = 'SoftCodeHandler_StimulusDisplay';
+PsychToolboxSoundServer('init') % Initialize sound server
+PsychToolboxDisplayServer('init') % Initialize display server
+BpodSystem.SoftCodeHandlerFunction = 'SoftCodeHandler_StimulusDisplay'; % Set soft code handler to trigger sounds
 
 %% Define settings for protocol
-
 %Initialize default settings.
 %Append new settings to the end
 DefaultSettings.SubjectName = 'Hare';
-DefaultSettings.leftRewardVolume = 4; % ul
-DefaultSettings.rightRewardVolume = 4;% ul
-DefaultSettings.centerRewardVolume = 0;% ul
-DefaultSettings.preStimDelayMin = 0.01; % secs
-DefaultSettings.preStimDelayMax = 0.1; % secs
+DefaultSettings.leftRewardVolume = 2;           % ul, left reward port volume
+DefaultSettings.rightRewardVolume = 2;          % ul, right reward port volume
+DefaultSettings.centerRewardVolume = 0.5;       % ul, center reward port volume
+DefaultSettings.centerRewardProp = 1;           % probability of 
+
+DefaultSettings.preStimDelayMin = 0.01;         % secs, 
+DefaultSettings.preStimDelayMax = 0.1;          % secs, 
 DefaultSettings.lambdaDelay = 15;
-DefaultSettings.StimulusDuration = 1;
-DefaultSettings.minWaitTime = 0.5; % secs
-DefaultSettings.minWaitTimeStep = 0.0003;% secs
-DefaultSettings.timeToChoose = 3; % secs
-DefaultSettings.timeOut = 2; % secs
 
-DefaultSettings.SpeedList = [1 2 4 6 8 10 12 14 16]; %deg/s
-DefaultSettings.CategoryBoundary = 8; %deg/s
-DefaultSettings.SpatialFreqList = [0.05 0.1]; %cycles/deg
-DefaultSettings.Azimuth = 40; % degrees to the right or left of center. can enter list of possible azimuths
-DefaultSettings.Elevation = [0 0]; %degrees, [left right] or list of possible elevations
-DefaultSettings.Orientation = [45 45]; %degrees , or list of possible orientations
-DefaultSettings.StimSize = 40; %in degrees, need to be converted into pixels
+DefaultSettings.StimulusDuration = 1;           % desired stimulus duration
+DefaultSettings.minWaitTime = 0.025;            % secs, minimum center wait duration
+DefaultSettings.minWaitTimeStep = 0.001;        % secs, increment wait step
+DefaultSettings.maxWaitTime = 1.25;             % maximum center wait duration
 
-DefaultSettings.PropLeft = 0.5;
-DefaultSettings.WaitStartCue = 0;
-DefaultSettings.WaitEndGoCue = 1;
-DefaultSettings.PlayStimulus = 1;
-DefaultSettings.StimBrightness = 20;
-DefaultSettings.Direct = 0; %this will reflect the probability/fraction of trials that are direct reward
-DefaultSettings.UseAntiBias = 0;
-DefaultSettings.AntiBiasTau = 4;
+DefaultSettings.timeToChoose = 3;               % secs, maximum allowed time before making choice
+DefaultSettings.timeOut = 2;                    % secs, time out period for incorrect trials or early center fixation withdrawals
 
-DefaultSettings.ExtraStimDuration = 1; %sec
-DefaultSettings.ExtraStimDurationStep = 0.0001; %sec
-DefaultSettings.PlotPMFnTrials = 100;
-DefaultSettings.UpdatePMfnTrials = 5;
+DefaultSettings.RefSpeed = 25;                  % degrees/s, reference speed. can also set to 37.5 degs/s
+DefaultSettings.SpeedList =[3.125 200];         % degrees/s, list of test speeds. Full list: [3.125 6.25 12.5 18.75 37.5 50 100 200]; %deg/s  --> full list [3.125 4.1667 6.25 8.3333 12.5 16.6667 18.75 25 33.3333 37.5 50 75 100 150 200]
+DefaultSettings.SFreqList = [0.02 0.16];        % cycles/deg, list of spatial frequencies. Full list: [0.02 0.04 0.08 0.12 0.16]
+DefaultSettings.TFreqList = [0.5 4];            % cycles/sec, list of temporal frequencies. Full list: [0.5 1 2 3 4]
+DefaultSettings.RefContrast = 1;                % list of reference contrasts [0.1 0.8];
+DefaultSettings.TestContrast = 1;               % list of test contrasts [0.1 0.4 0.8];
 
-defaultFieldParamVals = struct2cell(DefaultSettings);
-defaultFieldNames = fieldnames(DefaultSettings);
+DefaultSettings.StimSize = 40;                  % degrees, size of grating stimulus
+DefaultSettings.Azimuth = 40;                   % degrees, azimuth location to the right or left of center. can enter list of possible azimuths
+DefaultSettings.Elevation = 10;                 % degrees, list of possible elevations
+DefaultSettings.Orientation = 90;               % degrees , or list of possible orientations
 
-S = BpodSystem.ProtocolSettings; % Load settings chosen in launch manager into current workspace as a struct S
-currentFieldNames = fieldnames(S);
+DefaultSettings.PropLeft = 0.5;                 % proportion of left/right side
+DefaultSettings.WaitStartCue = 1;               % flag, 0 or 1, play tone at the beginning of center wait period
+DefaultSettings.WaitEndGoCue = 1;               % flag, 0 or 1, play tone at the end of center wait period
+DefaultSettings.PlayStimulus = 1;               % flag, 0 or 1, play stimulus
+DefaultSettings.Direct = 0;                     % probability 0-1. this will reflect the probability/fraction of trials that are direct reward
+DefaultSettings.UseAntiBias = 0;                % flag, 0 or 1, use antibias feature
+DefaultSettings.AntiBiasTau = 4;                % anti-bias time constant. reflects how far back (in trials) to calculate antibias parameters
 
-if isempty(fieldnames(S)) % If settings file was an empty struct, populate struct with default settings
-    S = DefaultSettings;
-elseif numel(defaultFieldNames) > numel(currentFieldNames)  %an addition to default settings, update
-    differentI = find(~ismember(defaultFieldNames,currentFieldNames)); %find the index
-    for ii = 1:numel(differentI)
-        thisnewfield = defaultFieldNames{differentI(ii)};
-        S.(thisnewfield)=defaultFieldParamVals{differentI(ii)};
-    end
+DefaultSettings.PlotPMFnTrials = 100;           % number of completed trials before plotting psychometric function (PMF)
+DefaultSettings.UpdatePMfnTrials = 5;           % update PMF after n trials
+
+% update settings
+defaultFieldNames = fieldnames(DefaultSettings); % get current settings field names
+prevSettings = BpodSystem.ProtocolSettings; % Load settings chosen in launch manager into current workspace as a struct S
+prevFieldNames = fieldnames(prevSettings);
+prevFieldVals = struct2cell(prevSettings);
+
+% go through previous settings and update accordingly
+newSettings = DefaultSettings;
+for n = 1:numel(defaultFieldNames)
+  thisfield = defaultFieldNames{n};
+  index = find(strcmpi(thisfield,prevFieldNames));
+  if isempty(index)
+      continue;
+  end
+  newSettings.(thisfield) = prevFieldVals{index};
 end
 
-% Launch parameter GUI
-BpodParameterGUI_Visual('init', S);
+S = newSettings; %update parameters
+BpodParameterGUI_Visual('init', S); % Launch parameter GUI
+
+%%
+SamplingFreq = 192000; % This has to match the sampling rate initialized in PsychToolboxSoundServer.m
+generateAndUploadSounds(SamplingFreq, 1); % generate audio signals and load to psychtoolbox
 
 %%
 % ports are numbered 0-7. Need to convert to 8bit values for bpod
@@ -94,7 +109,7 @@ SuccessArray = 0.5 * ones(2, 2, 2);    % successArray will be: prevTrialLR x pre
 ModalityRightArray = 0.5 * ones(1, 3);
 
 %% Initialize plots
-BpodSystem.ProtocolFigures.AllFigures = figure('Position', [500 1000 600 700], 'name', 'All Plots', 'numbertitle', 'off', 'MenuBar', 'none', 'Resize', 'off');
+BpodSystem.GUIHandles.Figures.AllFigures = figure('Position', [500 1000 600 700], 'name', 'All Plots', 'numbertitle', 'off', 'MenuBar', 'none', 'Resize', 'off');
 BpodSystem.GUIHandles.OutcomePlot = axes('Units', 'pixels', 'Position', [70 580 500 100],'tickdir','out');
 BpodSystem.GUIHandles.PerformancePlot = axes('Units', 'pixels', 'Position', [70 440 500 100],'tickdir','out');
 BpodSystem.GUIHandles.PMFPlot = axes('Units', 'pixels', 'Position', [70 30 240 280],'tickdir','out','ytick',(0:0.25:1),'XGrid','on','YGrid','on','YLim',[0 1.05]);
@@ -102,6 +117,15 @@ BpodSystem.GUIHandles.PMFPlotData = line([0 0],[0 0],'LineStyle','-','Marker','.
 
 OutcomePlot(BpodSystem.GUIHandles.OutcomePlot, 'init', TrialSidesList, 60);
 PerformancePlot(BpodSystem.GUIHandles.PerformancePlot,'init');
+
+BpodSystem.GUIHandles.LabelsText.TrialsDone = uicontrol('Style', 'text', 'String', 'Trials Done:', 'Position', [330 290 60 18], 'FontWeight', 'normal', 'FontSize', 10, 'FontName', 'Arial');
+BpodSystem.GUIHandles.LabelsText.CompletedTrials = uicontrol('Style', 'text', 'String', 'Valid Trials:', 'Position', [330 260 60 18], 'FontWeight', 'normal', 'FontSize', 10, 'FontName', 'Arial');
+BpodSystem.GUIHandles.LabelsText.RewardedTrials = uicontrol('Style', 'text', 'String', 'Rewarded Trials:', 'Position', [330 230 85 18], 'FontWeight', 'normal', 'FontSize', 10, 'FontName', 'Arial');
+BpodSystem.GUIHandles.LabelsText.WaterAmount = uicontrol('Style', 'text', 'String', 'Est. Water (mL):', 'Position', [330 200 85 18], 'FontWeight', 'normal', 'FontSize', 10, 'FontName', 'Arial');
+BpodSystem.GUIHandles.LabelsVal.TrialsDone = uicontrol('Style', 'text', 'String', '0', 'Position', [400 290 30 18], 'FontWeight', 'normal', 'FontSize', 10, 'FontName', 'Arial');
+BpodSystem.GUIHandles.LabelsVal.CompletedTrials = uicontrol('Style', 'text', 'String', '0', 'Position', [400 260 30 18], 'FontWeight', 'normal', 'FontSize', 10, 'FontName', 'Arial');
+BpodSystem.GUIHandles.LabelsVal.RewardedTrials = uicontrol('Style', 'text', 'String', '0', 'Position', [420 230 30 18], 'FontWeight', 'normal', 'FontSize', 10, 'FontName', 'Arial');
+BpodSystem.GUIHandles.LabelsVal.WaterAmount = uicontrol('Style', 'text', 'String', '0', 'Position', [420 200 45 18], 'FontWeight', 'normal', 'FontSize', 10, 'FontName', 'Arial');
 
 %% Initialize arrays for storing values later
 OutcomeRecord = nan(1,maxTrials);
@@ -117,11 +141,11 @@ TrialsDone =  0;
 %% Main loop
 for currentTrial = 1:maxTrials
     
-    S = BpodParameterGUI_Visual('update', S); drawnow; % Sync parameters with BpodParameterGUI plugin
+    S = BpodParameterGUI_Visual('update', S); drawnow; % Sync parameters with BpodParameterGUI B
     
     LeftValveTime = GetValveTimes(S.leftRewardVolume, 1);
     RightValveTime = GetValveTimes(S.rightRewardVolume, 3);
-    CenterValveTime = 0;
+    CenterValveTime = GetValveTimes(S.centerRewardVolume,2);
     
     if S.centerRewardVolume > 0
         CenterValveTime = GetValveTimes(S.centerRewardVolume, 2);
@@ -132,27 +156,22 @@ for currentTrial = 1:maxTrials
     if TrialsDone > 1
         outcome  = OutcomeRecord(TrialsDone);
         if outcome > -1
-            
             % Update arrays
             [newModalityRightArray, newSuccessArray] = updateAntiBiasArrays(ModalityRightArray, SuccessArray, ...
                 modalityRecord(TrialsDone - 1), outcome, ...
                 correctSideRecord(TrialsDone -1), ...
                 AntiBiasPrevLR, AntiBiasPrevSuccess, ...
                 S.AntiBiasTau, ResponseSideRecord(TrialsDone - 1) - 1);
-            
             % Update history
             AntiBiasPrevLR = correctSideRecord(TrialsDone -1);
             AntiBiasPrevSuccess = (OutcomeRecord(TrialsDone -1) == 1);
-            
             % Update matrices
             SuccessArray= newSuccessArray;
             ModalityRightArray= newModalityRightArray;
-            
         end
-        
     end %end TrialsDone%
     
-    preStimDelay = generate_random_delay(S.lambdaDelay, S.preStimDelayMin, S.preStimDelayMax);
+    preStimDelay = generate_random_delay(S.lambdaDelay, S.preStimDelayMin, S.preStimDelayMax); % calculate pre-stimulus delay
     
     Modality = 'Visual';
     disp('Visual trial');
@@ -192,101 +211,122 @@ for currentTrial = 1:maxTrials
         FutureTrials  = FutureTrials(randperm(ntrialsRemaining));
         TrialSidesList(currentTrial:end) = FutureTrials;
         PrevPropLeft = S.PropLeft;
-        
     end %end S.UseAntiBias, S.PropLeft
     
     if TrialsDone > 0
         UpdateOutcomePlot(TrialSidesList, BpodSystem.Data);
     end
     
-    % Pick this trial type
+    % Pick this trial type and speed
+    refSpeed = S.RefSpeed; %deg/s
+    refContrast = selectRandomIndex(S.RefContrast);
+    speedList = S.SpeedList;
+    testSpeed = selectRandomIndex(speedList);
+    testContrast = selectRandomIndex(S.TestContrast);
+    thisTrialSpeeds = [testSpeed refSpeed];
     thisTrialSide = TrialSidesList(currentTrial);
+    Contrasts = nan(1,2);
     
-    if thisTrialSide == 1 % Leftward trial
-        %present fastest of gratings on the left
+    if thisTrialSide == 1 % Reward on Left-hand port, i.e. present fastest of the two gratings on left side
         LeftPortAction = 'Reward';
         RightPortAction = 'SoftPunish';
         RewardValve = LeftPort; %left-hand port represents port#0, therefore valve value is 2^0
         rewardValveTime = LeftValveTime;
         correctSide = 1;
+        LRSpeeds = [max(thisTrialSpeeds) min(thisTrialSpeeds)];
         
-        speedList = S.SpeedList(S.SpeedList >= S.CategoryBoundary);
-    
-        % randomly shuffle eligible speeds and pick one
-        index = randperm(length(speedList));
-        thisTrialSpeedL = speedList(index(1));
-        thisTrialSpeedR = S.CategoryBoundary; %in the future can have this select one of many speeds below the category boundary
-        
-    else % Rightward trial (thisTrialSide == 0)
-        %present fastest of gratings on the right
+    else % Reward on Right-hand port, i.e. present fastest of the two gratings on right side
         LeftPortAction = 'SoftPunish';
         RightPortAction = 'Reward';
         RewardValve = RightPort; %right-hand port represents port#2, therefore valve value is 2^2
         rewardValveTime = RightValveTime;
         correctSide = 2;
-        
-        %select speed above or equal to category boundary
-        speedList = S.SpeedList(S.SpeedList >= S.CategoryBoundary);
-        index = randperm(length(speedList));
-        thisTrialSpeedR = speedList(index(1));
-        thisTrialSpeedL = S.CategoryBoundary; %set left port to category boundary 
+        LRSpeeds = [min(thisTrialSpeeds) max(thisTrialSpeeds)];
     end
-
-    disp(['Left Speed: ' num2str(thisTrialSpeedL) 'degrees/s'])
-    disp(['Right Speed: ' num2str(thisTrialSpeedR) 'degrees/s'])
     
-    %load parameters
-    parameters.StimSize = S.StimSize; %in degrees, need to be converted into pixels
-    parameters.Speeds = [thisTrialSpeedL thisTrialSpeedR]; %degrees/s
-    different = 0; %figure this out later
-    parameters.SpatialFreq = assignLeftRightParams(S.SpatialFreqList,different);%cycles/degree
-    parameters.Orientation = assignLeftRightParams(S.Orientation,different); %degrees
-    parameters.Elevation = assignLeftRightParams(S.Elevation,different);%degrees
-    parameters.Azimuth = assignLeftRightParams(S.Azimuth,different);%degrees
-    parameters.StimulusDuration = S.StimulusDuration;
+    disp(['Left Speed: ' num2str(LRSpeeds(1)) ' degrees/s'])
+    disp(['Right Speed: ' num2str(LRSpeeds(2)) ' degrees/s'])
+    
+    Contrasts(LRSpeeds == refSpeed) = refContrast;
+    Contrasts(LRSpeeds ~= refSpeed) = testContrast;
+    
+    %create visual speed matrix
+    sFreqList = S.SFreqList; %cycles/deg
+    tFreqList = S.TFreqList; %cycles/sec
+    
+    [sf,tf] = meshgrid(sFreqList,tFreqList);
+    speedMatrix = tf./sf;
+    
+    leftSFreq = selectRandomIndex(unique(sf(speedMatrix == LRSpeeds(1))));
+    rightSFreq = selectRandomIndex(unique(sf(speedMatrix == LRSpeeds(2))));
+    
+    leftTFreq = selectRandomIndex(unique(tf(speedMatrix==LRSpeeds(1))));
+    rightTFreq = selectRandomIndex(unique(tf(speedMatrix == LRSpeeds(2))));
+    
+    %store and load parameters to PsychtoolboxDisplayServer
+    stimParameters.PlayStimulus = 1;
+    stimParameters.StimSize = selectRandomIndex(S.StimSize); %in degrees, need to be converted into pixels
+    
+    stimParameters.Speeds = LRSpeeds;
+    stimParameters.SFreqs = [leftSFreq rightSFreq];
+    stimParameters.TFreqs = [leftTFreq rightTFreq];
+    stimParameters.StimContrasts = Contrasts;
+    
+    stimParameters.Orientation = selectRandomIndex(S.Orientation); %degrees
+    stimParameters.Elevation = S.Elevation;%degrees
+    stimParameters.Azimuth = S.Azimuth;%degrees
+    stimParameters.StimDuration = S.minWaitTime;
+    
+    %add random delay to post stimulus
+    postStimWaitTime = (S.minWaitTime - S.StimulusDuration) + generate_random_delay(S.lambdaDelay, S.preStimDelayMin, S.preStimDelayMax);
+    
+    if postStimWaitTime < 0
+        postStimWaitTime = 0;
+    else
+        stimParameters.StimDuration = S.StimulusDuration;
+    end
     
     if ~S.PlayStimulus
-        parameters.PlayStimulus = 0;
+        stimParameters.PlayStimulus = 0;
         Modality = '-';
     end
     
-    PsychToolboxDisplayServer('Make','DG',parameters);
+    PsychToolboxDisplayServer('Make','DG',stimParameters);
     
-    % Determine whether to play start cue or cue
-    if ~S.WaitStartCue
-        StartCueOutputAction  = {};
-    else
-        StartCueOutputAction = {'PWM1', 255,'PWM3', 255};
+    GoCueOutputAction = {};
+    WaitStartCueOutputAction = {};
+    
+    if S.WaitEndGoCue
+        GoCueOutputAction  = {'SoftCode', 3};
     end
     
-    if ~S.WaitEndGoCue
-        GoCueOutputAction  = {};
-    else
-        GoCueOutputAction = {'PWM1', 255,'PWM3', 255};
+    if S.WaitStartCue
+        WaitStartCueOutputAction = {'SoftCode', 2};
     end
+
     
-    % Build state matrix  
+    %% Build state matrix
     sma = NewStateMatrix();
     
     sma = AddState(sma, 'Name', 'GoToCenter', ...
         'Timer', 0,...
-        'StateChangeConditions', {'Port2In', 'PlayWaitStartCue'},...
+        'StateChangeConditions', {'Port2In', 'WaitStimStart'},...
         'OutputActions', {});
     
-    sma = AddState(sma, 'Name', 'PlayWaitStartCue', ...
+    sma = AddState(sma, 'Name', 'WaitStimStart', ...
         'Timer', preStimDelay, ...
         'StateChangeConditions', {'Tup','PlayStimulus', 'Port2Out', 'EarlyWithdrawal'},...
-        'OutputActions', StartCueOutputAction);
+        'OutputActions', WaitStartCueOutputAction);
     
     sma = AddState(sma, 'Name', 'PlayStimulus', ...
-        'Timer', 0, ...
-        'StateChangeConditions', {'Tup','WaitCenter'},...
+        'Timer', 0.05, ...
+        'StateChangeConditions', {'Tup','WaitCenter','Port2Out', 'EarlyWithdrawal'},...
         'OutputActions', {'SoftCode', 1});
     
     sma = AddState(sma, 'Name', 'WaitCenter', ...
-        'Timer', S.minWaitTime, ...
+        'Timer',  S.minWaitTime, ...
         'StateChangeConditions', {'Port2Out', 'EarlyWithdrawal', 'Tup', 'PlayGoTone'}, ...
-        'OutputActions',{});
+        'OutputActions',{'SoftCode',254});
     
     sma = AddState(sma, 'Name', 'PlayGoTone', ...
         'Timer', CenterValveTime, ...
@@ -298,7 +338,7 @@ for currentTrial = 1:maxTrials
             'Timer', S.timeToChoose,...
             'StateChangeConditions', {'Port2Out', 'DirectReward', 'Tup', 'DidNotChoose'},...
             'OutputActions', {});
-    
+        
         sma = AddState(sma, 'Name', 'DirectReward', ...
             'Timer', 0, ...
             'StateChangeConditions', {'Tup', 'Reward'},...
@@ -319,62 +359,61 @@ for currentTrial = 1:maxTrials
     sma = AddState(sma, 'Name', 'Reward', ...
         'Timer', rewardValveTime,...
         'StateChangeConditions', {'Tup','PrepareNextTrial'},...
-        'OutputActions', {'ValveState', RewardValve,'SoftCode', 255});
+        'OutputActions', {'ValveState', RewardValve,'SoftCode', 254});
     
     % For soft punishment just give time out
     sma = AddState(sma, 'Name', 'SoftPunish', ...
-        'Timer', S.timeOut,...
+        'Timer', (S.timeOut + 0.1),...
         'StateChangeConditions', {'Tup','PrepareNextTrial'},...
-        'OutputActions', {'SoftCode', 255});
+        'OutputActions', {'SoftCode', 254});
     
     sma = AddState(sma, 'Name', 'EarlyWithdrawal', ...
         'Timer', 0,...
         'StateChangeConditions', {'Tup', 'HardPunish'},...
-        'OutputActions', {'SoftCode', 255});
+        'OutputActions', {'SoftCode', 254});
     
     % For hard punishment play noise and give time out
     sma = AddState(sma, 'Name', 'HardPunish', ...
-        'Timer', S.timeOut, ...
+        'Timer', (S.timeOut + 0.1), ...
         'StateChangeConditions', {'Tup', 'PrepareNextTrial'}, ...
-        'OutputActions', {});
+        'OutputActions', {'SoftCode',4,'PWM1',128,'PWM2',128,'PWM3',128});
     
     sma = AddState(sma, 'Name', 'DidNotChoose', ...
         'Timer', 0, ...
         'StateChangeConditions', {'Tup', 'SoftPunish'}, ...
-        'OutputActions', {'SoftCode', 255});
+        'OutputActions', {'SoftCode', 254});
     
     sma = AddState(sma, 'Name', 'PrepareNextTrial', ...
         'Timer', 0, ...
         'StateChangeConditions', {'Tup', 'exit'}, ...
         'OutputActions', {'SoftCode', 255} );
     
-    % Send and run state matrix
+    %% Send and run state matrix
     BpodSystem.Data.TrialSettings(currentTrial) = S; % Adds the settings used for the current trial to the Data struct (to be saved after the trial ends)
     
     SendStateMatrix(sma);
     RawEvents = RunStateMatrix;
     
-    % Save events and data
+    %% Save events and data
     if ~isempty(fieldnames(RawEvents))
         BpodSystem.Data = AddTrialEvents(BpodSystem.Data,RawEvents);
         
         TrialsDone = TrialsDone + 1; %increment number of trials done
-        
-        % need to save these next five variables as they are no longer
-        % included in the settings file.
-        BpodSystem.Data.Modality{TrialsDone} = Modality;
-        BpodSystem.Data.CategoryBoundary(TrialsDone) = S.CategoryBoundary;
-        BpodSystem.Data.DesiredStimDuration(TrialsDone) = S.StimulusDuration;
-        
         Rewarded(TrialsDone) = ~isnan(BpodSystem.Data.RawEvents.Trial{1,currentTrial}.States.Reward(1));
         EarlyWithdrawal(TrialsDone) = ~isnan(BpodSystem.Data.RawEvents.Trial{1,currentTrial}.States.EarlyWithdrawal(1));
         DidNotChoose(TrialsDone) = ~isnan(BpodSystem.Data.RawEvents.Trial{1,currentTrial}.States.DidNotChoose(1));
-        
+      
+        BpodSystem.Data.Modality{TrialsDone} = Modality;
+        BpodSystem.Data.ReferenceSpeed(TrialsDone) = refSpeed;
+        BpodSystem.Data.TestSpeed(TrialsDone) = testSpeed;
+        BpodSystem.Data.RefContrast(TrialsDone) = refContrast;
+        BpodSystem.Data.TestContrast(TrialsDone) = testContrast;
+        BpodSystem.Data.DesiredStimDuration(TrialsDone) = S.StimulusDuration;
         BpodSystem.Data.Rewarded(TrialsDone) = Rewarded(TrialsDone);
         BpodSystem.Data.EarlyWithdrawal(TrialsDone) = EarlyWithdrawal(TrialsDone);
         BpodSystem.Data.DidNotChoose(TrialsDone) = DidNotChoose(TrialsDone);
-        BpodSystem.Data.LeftSpeed(TrialsDone) = thisTrialSpeedL;
-        BpodSystem.Data.RightSpeeed(TrialsDone) = thisTrialSpeedR;
+        BpodSystem.Data.LeftRightSpeed{TrialsDone} = LRSpeeds;
+        BpodSystem.Data.StimParameters(TrialsDone) = stimParameters;
         BpodSystem.Data.PreStimDelay(TrialsDone) = preStimDelay;
         BpodSystem.Data.SetWaitTime(TrialsDone) = S.minWaitTime;
         BpodSystem.Data.DirectReward(TrialsDone) = directTrial;
@@ -407,13 +446,11 @@ for currentTrial = 1:maxTrials
         end
         
         if OutcomeRecord(TrialsDone) >= 0 %if the subject responded
-            
             if ((correctSideRecord(TrialsDone)==1) && Rewarded(TrialsDone)) || ((correctSideRecord(TrialsDone)==2) && ~Rewarded(TrialsDone))
                 ResponseSideRecord(TrialsDone) = 1;
             elseif ((correctSideRecord(TrialsDone)==1) && ~Rewarded(TrialsDone)) || ((correctSideRecord(TrialsDone)==2) && Rewarded(TrialsDone))
                 ResponseSideRecord(TrialsDone) = 2;
             end
-            
         end
         
         BpodSystem.Data.ResponseSide(TrialsDone) = ResponseSideRecord(TrialsDone);
@@ -424,11 +461,16 @@ for currentTrial = 1:maxTrials
             
         end
         
-        %print things to screen
-        fprintf('Nr. of trials initiated: %d\n', TrialsDone)
-        fprintf('Nr. of completed trials: %d\n', TrialsDone - nansum(EarlyWithdrawal)-nansum(DidNotChoose))
-        fprintf('Nr. of rewards: %d\n', nansum(Rewarded))
-        fprintf('Amount of water (est.): %d\n', nansum(Rewarded) * (mean([S.leftRewardVolume S.rightRewardVolume])))
+        if S.minWaitTime > S.maxWaitTime
+            S.minWaitTime = S.maxWaitTime;
+            S.minWaitTimeStep = 0;
+        end
+        
+        set(BpodSystem.GUIHandles.LabelsVal.TrialsDone,'String',num2str(TrialsDone'));
+        set(BpodSystem.GUIHandles.LabelsVal.CompletedTrials,'String',num2str( TrialsDone - nansum(EarlyWithdrawal)-nansum(DidNotChoose)));
+        set(BpodSystem.GUIHandles.LabelsVal.RewardedTrials,'String',num2str(nansum(Rewarded)));
+        set(BpodSystem.GUIHandles.LabelsVal.WaterAmount,'String',[num2str((nansum(Rewarded) * (mean([S.leftRewardVolume S.rightRewardVolume])))/1000) ' ml']);
+        drawnow;
         
         PerformancePlot(BpodSystem.GUIHandles.PerformancePlot, 'update', currentTrial, TrialSidesList, OutcomeRecord);
         
@@ -448,7 +490,7 @@ for currentTrial = 1:maxTrials
     save(BpodSystem.SettingsPath, 'S');
     
     if BpodSystem.BeingUsed == 0
-%         BpodParameterGUI_Visual('close',S)
+        PsychToolboxSoundServer('Close');
         Screen('Close')
         return;
     end
@@ -458,38 +500,27 @@ end
 
 
 %% Auxillary functions
-function [L,R] = assignLeftRightParams(param,different)
 
-if numel(param) == 1
-    L = param;
-    R = param;
-else
-    index = randperm(numel(param));
-    L = param(index(1));
-    R = L;
-    
-    if different
-        index = randperm(numel(param));
-        R = param(index(1));
-    end
-    
-    
+%% selectRandomIndex
+function index = selectRandomIndex(vectorList)
+indices = randperm(numel(vectorList));
+index = vectorList(indices(1));
 end
-end
+
 
 %%
 function generateAndUploadSounds (samplingFreq, soundLoudness)
 % Star wait cue
-waveStartSound = soundLoudness * GenerateSineWave(samplingFreq, 7000, 0.1); % Sampling freq (hz), Sine frequency (hz), duration (s)
+waveStartSound = (0.5*soundLoudness) * GenerateSineWave(samplingFreq, 7000, 0.1); % Sampling freq (hz), Sine frequency (hz), duration (s)
 WaitStartSound = [zeros(1,size(waveStartSound,2)); waveStartSound];
 
 % Go cue
-waveStopSound = soundLoudness * GenerateSineWave(samplingFreq, 3000, 0.1);
+waveStopSound = (0.5 * soundLoudness) * GenerateSineWave(samplingFreq, 3000, 0.1);
 WaitStopSound = [zeros(1,size(waveStopSound,2)); waveStopSound];
 
 % Early withdrawal punishment tone
-% wavePunishSound = (rand(1,SamplingFreq*.5)*2) - 1;
-wavePunishSound = 0.15 * soundLoudness * GenerateSineWave(samplingFreq, 12000, 1);
+wavePunishSound = (rand(1,samplingFreq*.5)*2) - 1;
+% wavePunishSound = 0.15 * soundLoudness * GenerateSineWave(samplingFreq, 12000, 1);
 PunishSound = [zeros(1,size(wavePunishSound,2)); wavePunishSound];
 
 % Upload sounds to sound server. Channel 1 reserved for stimuli
@@ -518,26 +549,26 @@ end
 %% plot pmf
 function pmfPlot
 
-% global BpodSystem
-% eventRates = BpodSystem.Data.EventRate;
-% responseSides =   BpodSystem.Data.ResponseSide;
-% respondedTrials = (responseSides == 1 | responseSides == 2); %trials in which the subject made a decision
-% 
-% uniquerates = unique(eventRates);
-% propRight = nan(1,numel(uniquerates));
-% 
-% for rr = 1:numel(uniquerates)
-%     this_rate = uniquerates(rr);
-%     this_rate_trials = (eventRates == this_rate);
-%     nRights = sum(responseSides(respondedTrials & this_rate_trials) == 2);
-%     nTotal = sum(responseSides(respondedTrials & this_rate_trials) > 0); %using responseside takes care of incompleted/did not choose trials
-%     propRight(rr) = nRights./nTotal;
-% end
-% 
-% hpmfdata = BpodSystem.GUIHandles.PMFPlotData;
-% 
-% set(hpmfdata,'xdata',[],'ydata',[]) %clear figure
-% set(hpmfdata,'xdata',uniquerates,'ydata',propRight);drawnow %plot data
+global BpodSystem
+testSpeeds = BpodSystem.Data.TestSpeed;
+responseSides =   BpodSystem.Data.ResponseSide;
+respondedTrials = (responseSides == 1 | responseSides == 2); %trials in which the subject made a decision
+%
+uniqueSpeeds = unique(testSpeeds);
+propRight = nan(1,numel(uniqueSpeeds));
+%
+for rr = 1:numel(uniqueSpeeds)
+    thisSpeed = uniqueSpeeds(rr);
+    theseTrials = (testSpeeds == thisSpeed);
+    nRights = sum(responseSides(respondedTrials & theseTrials) == 2);
+    nTotal = sum(responseSides(respondedTrials & theseTrials) > 0); %using responseside takes care of incompleted/did not choose trials
+    propRight(rr) = nRights./nTotal;
+end
+%
+hpmfdata = BpodSystem.GUIHandles.PMFPlotData;
+
+set(hpmfdata,'xdata',[],'ydata',[]) %clear figure
+set(hpmfdata,'xdata',uniqueSpeeds,'ydata',propRight);drawnow %plot data
 
 end
 

@@ -1,5 +1,5 @@
 function DualGrater
-Screen('Preference', 'SkipSyncTests', 0);
+% Screen('Preference', 'SkipSyncTests', 1);
 
 % ___________________________________________________________________
 %
